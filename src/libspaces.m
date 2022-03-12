@@ -293,7 +293,7 @@ static luaL_Reg moduleLib[] = {
 //     {NULL,   NULL}
 // };
 
-int luaopen_hs_spaces_spacesObjc(lua_State* L) {
+int luaopen_hs_libspaces(lua_State* L) {
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
     refTable = [skin registerLibrary:USERDATA_TAG functions:moduleLib metaFunctions:nil] ; // or module_metaLib
 
