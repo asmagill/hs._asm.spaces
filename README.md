@@ -61,7 +61,6 @@ spaces = require("hs.spaces")
 * <a href="#closeMissionControl">spaces.closeMissionControl() -> None</a>
 * <a href="#data_managedDisplaySpaces">spaces.data_managedDisplaySpaces() -> table | nil, error</a>
 * <a href="#data_missionControlAXUIElementData">spaces.data_missionControlAXUIElementData(callback) -> None</a>
-* <a href="#displayIsAnimating">spaces.displayIsAnimating(screen) -> boolean | nil, error</a>
 * <a href="#focusedSpace">spaces.focusedSpace() -> integer</a>
 * <a href="#gotoSpace">spaces.gotoSpace(spaceID) -> true | nil, errMsg</a>
 * <a href="#missionControlSpaceNames">spaces.missionControlSpaceNames([closeMC]) -> table | nil, error</a>
@@ -209,23 +208,6 @@ Notes:
  * Getting Accessibility elements for Mission Control is somewhat tricky -- they only exist when the Mission Control display is visible, which is the exact time that you can't examine them. What this function does is trigger Mission Control and then builds a tree of the elements, capturing all of the properties and property values while the elements are valid, closes Mission Control, and then returns the results in a table by invoking the provided callback function.
    * Note that the `hs.axuielement` objects within the table returned will be invalid by the time you can examine them -- this is why the attributes and values will also be contained in the resulting tree.
    * Example usage: `hs.spaces.data_missionControlAXUIElementData(function(results) hs.console.clearConsole() ; print(hs.inspect(results)) end)`
-
-- - -
-
-<a name="displayIsAnimating"></a>
-~~~lua
-spaces.displayIsAnimating(screen) -> boolean | nil, error
-~~~
-Returns whether or not the specified screen is currently undergoing space change animation
-
-Parameters:
- * `screen` - an integer specifying the screen ID, an hs.screen object, or a string specifying the UUID of the screen to check for animation
-
-Returns:
- * true if the screen is currently in the process of animating a space change, or false if it is not
-
-Notes:
- * Non-space change animations are not captured by this function -- unfortunately this lack also includes the change to the Mission Control and App Exposé displays.
 
 - - -
 
