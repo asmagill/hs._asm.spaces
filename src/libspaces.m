@@ -12,6 +12,14 @@ static int g_connection ;
 
 #pragma mark - Support Functions and Classes
 
+// https://github.com/koekeishiya/yabai/commit/7bacdd59bdf39b53012e024b442d61913095794e#diff-fab09245ac7f0bacbd4b3648bdd51eff6c41dc937f5dbaaf7459ff9ea70d3557R17-R27
+static bool workspace_is_macos_sonoma14_5_or_newer(void) {
+    NSOperatingSystemVersion os_version = [[NSProcessInfo processInfo] operatingSystemVersion];
+    if (os_version.majorVersion > 14) return true;
+    if (os_version.majorVersion == 14 && os_version.minorVersion >= 5) return true;
+    return false;
+}
+
 #pragma mark - Module Functions
 
 /// hs.spaces.screensHaveSeparateSpaces() -> bool
@@ -131,26 +139,28 @@ static int spaces_windowsForSpace(lua_State *L) { // NOTE: wrapped in init.lua
     return 1 ;
 }
 
-/// hs.spaces.moveWindowToSpace(window, spaceID) -> true | nil, error
+/// hs.spaces.moveWindowToSpace(window, spaceID[, force]) -> true | nil, error
 /// Function
 /// Moves the window with the specified windowID to the space specified by spaceID.
 ///
 /// Parameters:
 ///  * `window`  - an integer specifying the ID of the window, or an `hs.window` object
 ///  * `spaceID` - an integer specifying the ID of the space
+///  * `force` - an optional boolean specifying whether the window should be tried to move even if the spaces aren't compatible
 ///
 /// Returns:
 ///  * true if the window was moved; otherwise nil and an error message.
 ///
 /// Notes:
-///  * a window can only be moved from a user space to another user space -- you cannot move the window of a full screen (or tiled) application to another space and you cannot move a window *to* the same space as a full screen application.
+///  * a window can only be moved from a user space to another user space -- you cannot move the window of a full screen (or tiled) application to another space. you also cannot move a window *to* the same space as a full screen application unless `force` is set to true and even then it works for floating windows only.
 static int spaces_moveWindowToSpace(lua_State *L) { // NOTE: wrapped in init.lua
     LuaSkin *skin = [LuaSkin sharedWithState:L] ;
-    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER, LS_TBREAK] ;
+    [skin checkArgs:LS_TNUMBER | LS_TINTEGER, LS_TNUMBER | LS_TINTEGER, LS_TBOOLEAN | LS_TOPTIONAL, LS_TBREAK] ;
     uint32_t wid = (uint32_t)lua_tointeger(L, 1) ;
     uint64_t sid = (uint64_t)lua_tointeger(L, 2) ;
+    BOOL     force = (lua_gettop(L) > 2) ? (BOOL)(lua_toboolean(L, 3)) : NO ;
 
-    if (SLSSpaceGetType(g_connection, sid) != 0) {
+    if (SLSSpaceGetType(g_connection, sid) != 0 && force == NO) {
         lua_pushnil(L) ;
         lua_pushfstring(L, "target space ID %d does not refer to a user space", sid) ;
         return 2 ;
@@ -163,12 +173,21 @@ static int spaces_moveWindowToSpace(lua_State *L) { // NOTE: wrapped in init.lua
     if (spacesList) {
         if (![(__bridge NSArray *)spacesList containsObject:[NSNumber numberWithUnsignedLongLong:sid]]) {
             NSNumber *sourceSpace = [(__bridge NSArray *)spacesList firstObject] ;
-            if (SLSSpaceGetType(g_connection, sourceSpace.unsignedLongLongValue) != 0) {
+            if (SLSSpaceGetType(g_connection, sourceSpace.unsignedLongLongValue) != 0 && force == NO) {
                 lua_pushnil(L) ;
                 lua_pushfstring(L, "source space for windowID %d is not a user space", wid) ;
+                CFRelease(spacesList);
                 return 2 ;
             }
-            SLSMoveWindowsToManagedSpace(g_connection, (__bridge CFArrayRef)windows, sid) ;
+
+// https://github.com/koekeishiya/yabai/commit/98bbdbd1363f27d35f09338cded0de1ec010d830
+            if (workspace_is_macos_sonoma14_5_or_newer()) {
+                SLSSpaceSetCompatID(g_connection, sid, 0x79616265);
+                SLSSetWindowListWorkspace(g_connection, &wid, 1, 0x79616265);
+                SLSSpaceSetCompatID(g_connection, sid, 0x0);
+            } else {
+                SLSMoveWindowsToManagedSpace(g_connection, (__bridge CFArrayRef)windows, sid) ;
+            }
         }
         lua_pushboolean(L, true) ;
         CFRelease(spacesList) ;
